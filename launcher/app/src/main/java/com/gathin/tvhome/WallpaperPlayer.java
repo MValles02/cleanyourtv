@@ -170,7 +170,7 @@ final class WallpaperPlayer implements TextureView.SurfaceTextureListener, Media
         String nextKey = key;
         if (WallpaperRotation.video(next.getName())) {
             showVideo(next);
-            if (videoFile == null) return;   // it failed to start and update() already moved on
+            if (videoFile != next) return;   // it failed to start and update() already moved on
             displayed = next.getName();
             remember(nextKey, previous, changed);
             return;
@@ -285,6 +285,8 @@ final class WallpaperPlayer implements TextureView.SurfaceTextureListener, Media
         if (what == MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START) {
             video.setAlpha(1f);
             image.setImageDrawable(null);
+        } else if (what == MediaPlayer.MEDIA_INFO_VIDEO_NOT_PLAYING) {
+            videoFailed();   // no decoder for this video: the audio would play on, the picture never
         }
         return true;
     }
