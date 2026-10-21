@@ -23,6 +23,7 @@
     <string name="stats_memory">Memoria %1$d MB libres</string>
     <string name="stats_storage">Almacenamiento %1$s libre</string>
     <string name="dream_name">Reloj</string>
+    <string name="dream_home_name">Home</string>
     <string name="launcher_settings">Ajustes del lanzador</string>
     <string name="columns_label">Aplicaciones por fila</string>
     <string name="animations_state">Animaciones: %1$s</string>

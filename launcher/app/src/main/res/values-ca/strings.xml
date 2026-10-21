@@ -22,6 +22,7 @@
     <string name="stats_memory">Memòria %1$d MB lliures</string>
     <string name="stats_storage">Emmagatzematge %1$s lliure</string>
     <string name="dream_name">Rellotge</string>
+    <string name="dream_home_name">Home</string>
     <string name="launcher_settings">Configuració del llançador</string>
     <string name="columns_label">Aplicacions per fila</string>
     <string name="animations_state">Animacions: %1$s</string>

@@ -144,6 +144,57 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     /** messages (config.json): one is picked each time Home comes back from hidden and replaces the greeting. */
     private List<String> messages = Collections.emptyList();
     private String message = "";
+    /** Home sits under the HomeDream screensaver: dock, buttons and hero wait hidden for the wake animation. */
+    private boolean dreamHidden;
+    /** Set while the screensaver covers Home, cleared 3 s after it ends: the first onStart in that window keeps the message. */
+    private boolean keepMessage;
+    private long pausedAt;
+    private float heroAlpha;
+    /** The dock is sliding up after the screensaver: the glass waits, its tile is still moving. */
+    private boolean revealing;
+    private final BroadcastReceiver dreamReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            boolean front = pausedAt == 0 || SystemClock.uptimeMillis() - pausedAt < 3000;
+            if (Intent.ACTION_DREAMING_STARTED.equals(intent.getAction())) {
+                if (front && !dreamHidden) hideForDream();
+            } else {
+                handler.postDelayed(() -> keepMessage = false, 3000);
+                if (pausedAt == 0 && dreamHidden) revealAfterDream();   // otherwise onResume does, when Home is the activity returned to
+            }
+        }
+    };
+
+    private void hideForDream() {
+        dreamHidden = keepMessage = true;
+        heroAlpha = hero.getAlpha();
+        hero.setAlpha(0f);
+        glass.setAlpha(0f);
+        grid.setAlpha(0f);
+        findViewById(R.id.topButtons).setAlpha(0f);
+    }
+
+    /** The dock slides up, the buttons settle down and the hero fades in; instant with animations off. */
+    private void revealAfterDream() {
+        dreamHidden = false;
+        if (revealing) return;
+        revealing = true;
+        long d = animations && !reducedMotion ? 400 : 0;
+        View buttons = findViewById(R.id.topButtons);
+        grid.setTranslationY(d == 0 ? 0 : grid.getHeight() / 3f);
+        buttons.setTranslationY(d == 0 ? 0 : -buttons.getHeight() / 2f);
+        grid.animate().alpha(1f).translationY(0f).setDuration(d)
+                .setInterpolator(new android.view.animation.DecelerateInterpolator())
+                .withEndAction(() -> {   // the glass follows the focused tile, so it waits for the slide to end
+                    revealing = false;
+                    if (glassShown) {
+                        glassShown = false;   // refit places it on the tile's final position and fades it in
+                        refitGlass();
+                    }
+                }).start();
+        buttons.animate().alpha(1f).translationY(0f).setDuration(d).start();
+        if (hero.getAlpha() == 0f) hero.animate().alpha(heroAlpha).setDuration(d).start();
+    }
     private final java.util.Random messageRandom = new java.util.Random();
     /** Optional time-of-day backdrop (config.xml, sky_intensity); 0 keeps it hidden. */
     private SkyView sky;
@@ -296,7 +347,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
         root = findViewById(R.id.root);
         root.setBackgroundColor(cfg.backgroundColor);
-        wallpaperPlayer = new WallpaperPlayer(this, root, cfg);
+        wallpaperPlayer = new WallpaperPlayer(this, root, cfg, false);
         sky = findViewById(R.id.sky);
         sky.setIntensity(cfg.skyIntensity);
         glass = findViewById(R.id.glass);
@@ -333,6 +384,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         shamsi = cfg.shamsiDate;
         greetingName = cfg.greetingName;
         messages = cfg.messages;
+        // Protected system broadcasts: registered for the whole life of Home, which may be stopped under the dream.
+        IntentFilter dreamFilter = new IntentFilter(Intent.ACTION_DREAMING_STARTED);
+        dreamFilter.addAction(Intent.ACTION_DREAMING_STOPPED);
+        registerReceiver(dreamReceiver, dreamFilter);
         if (shamsi) {
             shamsiDate.setVisibility(View.VISIBLE);
             TextView date = findViewById(R.id.date);
@@ -574,7 +629,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onStart() {
         super.onStart();
-        if (!messages.isEmpty()) {
+        if (keepMessage) keepMessage = false;   // back from the screensaver keeps the message
+        else if (!messages.isEmpty()) {
             List<String> others = new ArrayList<>(messages);
             if (others.size() > 1) others.remove(message);
             message = others.get(messageRandom.nextInt(others.size()));
@@ -594,6 +650,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             recreate();
             return;
         }
+        pausedAt = 0;
+        if (dreamHidden) revealAfterDream();   // no stop event came, or Home was resumed first
         promptsPaused = false;
         if (rebuildOnResume) {
             tilesReady = false;
@@ -703,6 +761,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onPause() {
         super.onPause();
+        pausedAt = SystemClock.uptimeMillis();
         endReorder();   // Home or another app while reordering keeps the order so far
         wallpaperPlayer.stop();
         stopAmbientAnimation();
@@ -739,6 +798,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     protected void onDestroy() {
         super.onDestroy();
         wallpaperPlayer.close();
+        unregisterReceiver(dreamReceiver);
         ConnectivityManager cm = getSystemService(ConnectivityManager.class);
         TvInputManager tim = (TvInputManager) getSystemService(TV_INPUT_SERVICE);
         if (tim != null) tim.unregisterCallback(inputCallback);
@@ -780,6 +840,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      */
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
+        if (dreamHidden) revealAfterDream();
         if (handleSettingsKey(event)) return true;
         if (!reordering) return super.dispatchKeyEvent(event);
         if (dockEditing) return dispatchDockEdit(event);
@@ -1097,7 +1158,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             springY.cancel();
             glass.setTranslationX(x);
             glass.setTranslationY(y);
-            if (animations) glass.animate().alpha(1f).setDuration(reducedMotion ? 100 : 180).start();
+            if (revealing) glass.setAlpha(0f);
+            else if (animations) glass.animate().alpha(1f).setDuration(reducedMotion ? 100 : 180).start();
             else glass.setAlpha(1f);
             glassShown = true;
         } else if (!animations) {
@@ -1790,6 +1852,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                     : getString(R.string.greeting_with_name, getString(res), greetingName));
             greeting.setTextColor(greetingColor);
         }
+        HomeDream.greeting = greeting.getText().toString();
         if (shamsi) shamsiDate.setText(Shamsi.today());
     }
 

@@ -32,6 +32,7 @@ import java.util.concurrent.Executors;
  */
 final class WallpaperPlayer implements TextureView.SurfaceTextureListener, MediaPlayer.OnPreparedListener,
         MediaPlayer.OnErrorListener, MediaPlayer.OnInfoListener, MediaPlayer.OnVideoSizeChangedListener {
+    private final boolean dream;
     private final FrameLayout root;
     private final ImageView image;
     /** Entry key to its files: 0 = day (or the only file), 1 = night. */
@@ -53,7 +54,9 @@ final class WallpaperPlayer implements TextureView.SurfaceTextureListener, Media
     private MediaPlayer media;
     private File videoFile;
 
-    WallpaperPlayer(Context context, FrameLayout root, Config config) {
+    /** {@code dream}: the screensaver only reads the rotation state Home keeps, it never writes it. */
+    WallpaperPlayer(Context context, FrameLayout root, Config config, boolean dream) {
+        this.dream = dream;
         this.root = root;
         for (File file : config.wallpapers) {
             String key = WallpaperRotation.key(file.getName());
@@ -124,7 +127,7 @@ final class WallpaperPlayer implements TextureView.SurfaceTextureListener, Media
             }
             if (shown) {
                 displayed = file.getName();
-                if (!key.equals(previous)) {
+                if (!key.equals(previous) && !dream) {
                     preferences.edit().putString("image", key)
                             .putLong("changed", System.currentTimeMillis()).apply();
                 }
