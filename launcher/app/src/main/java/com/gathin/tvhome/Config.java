@@ -106,6 +106,8 @@ final class Config {
     final boolean cinematicHome;
     /** Background tint in the focused dock app's colour (config.xml, ambient_glow). */
     final boolean ambientGlow;
+    /** Race panel always shows the upcoming weekend, however far away (config.xml, race_always). */
+    final boolean raceAlways;
     /** Where the TV is (config.json, latitude/longitude), for day/night wallpapers; NaN when unset. */
     final double latitude;
     final double longitude;
@@ -122,7 +124,7 @@ final class Config {
                    int wallpaperRotationMinutes, int wallpaperDim, boolean overlayApplied,
                    Festival festival, int[] inputKeycodes, List<String> appKeys,
                    List<RaceWeekend.Race> raceCalendar, boolean cinematicHome, boolean ambientGlow,
-                   double latitude, double longitude, List<String> messages) {
+                   boolean raceAlways, double latitude, double longitude, List<String> messages) {
         this.inputKeycodes = inputKeycodes;
         this.appKeys = Collections.unmodifiableList(appKeys);
         this.dockApps = Collections.unmodifiableList(dockApps);
@@ -165,6 +167,7 @@ final class Config {
         this.raceCalendar = Collections.unmodifiableList(raceCalendar);
         this.cinematicHome = cinematicHome;
         this.ambientGlow = ambientGlow;
+        this.raceAlways = raceAlways;
         this.latitude = latitude;
         this.longitude = longitude;
         this.messages = Collections.unmodifiableList(messages);
@@ -211,6 +214,7 @@ final class Config {
         List<String> appKeys = new ArrayList<>(Arrays.asList(res.getStringArray(R.array.app_keys)));
         boolean cinematic = res.getBoolean(R.bool.cinematic_home);
         boolean ambientGlow = res.getBoolean(R.bool.ambient_glow);
+        boolean raceAlways = res.getBoolean(R.bool.race_always);
         boolean applied = false;
         double latitude = Double.NaN, longitude = Double.NaN;
         List<String> messages = new ArrayList<>();
@@ -257,6 +261,7 @@ final class Config {
             appKeys = stringList(json, "app_keys", appKeys);
             cinematic = bool(json, "cinematic_home", cinematic);
             ambientGlow = bool(json, "ambient_glow", ambientGlow);
+            raceAlways = bool(json, "race_always", raceAlways);
         }
         // A theme push or reset invalidates choices made on the TV. On first use, remember the
         // current theme without clearing choices from an older launcher version.
@@ -313,7 +318,7 @@ final class Config {
                 Math.max(0, Math.min(100, skyIntensity)), settingsKeycodes, settingsKeyPanel, wallpaperEnabled, wallpaper,
                 wallpapers, rotationMinutes, wallpaperDim, applied,
                 festival, inputKeycodes, appKeys, json == null ? Collections.emptyList() : raceCalendar(json), cinematic, ambientGlow,
-                latitude, longitude, messages);
+                raceAlways, latitude, longitude, messages);
     }
 
     /**

@@ -134,6 +134,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private TextView shamsiDate;
     private TextView stats;
     private List<RaceWeekend.Race> raceCalendar;
+    private boolean raceAlways;
     private View racePanel;
     private TextView raceKicker, raceHeadline, raceSessions;
     /** config.xml show_stats, overridable by a theme. Off: the line is gone and nothing is read. */
@@ -376,6 +377,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         shamsiDate = findViewById(R.id.shamsiDate);
         stats = findViewById(R.id.stats);
         raceCalendar = cfg.raceCalendar;
+        raceAlways = cfg.raceAlways;
         racePanel = findViewById(R.id.racePanel);
         raceKicker = findViewById(R.id.raceKicker);
         raceHeadline = findViewById(R.id.raceHeadline);
@@ -1866,7 +1868,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      */
     private void updateRace() {
         if (raceCalendar.isEmpty()) return;
-        RaceWeekend.State s = RaceWeekend.at(raceCalendar, java.time.Instant.now());
+        RaceWeekend.State s = RaceWeekend.at(raceCalendar, java.time.Instant.now(), raceAlways);
         if (s == null) {
             racePanel.setVisibility(View.GONE);
             return;
