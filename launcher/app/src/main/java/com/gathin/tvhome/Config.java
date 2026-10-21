@@ -104,6 +104,8 @@ final class Config {
     final List<RaceWeekend.Race> raceCalendar;
     /** Cinematic top shelf (config.xml, cinematic_home): the focused dock app's artwork behind a larger shelf. */
     final boolean cinematicHome;
+    /** Background tint in the focused dock app's colour (config.xml, ambient_glow). */
+    final boolean ambientGlow;
     /** Where the TV is (config.json, latitude/longitude), for day/night wallpapers; NaN when unset. */
     final double latitude;
     final double longitude;
@@ -119,7 +121,7 @@ final class Config {
                    int[] settingsKeycodes, boolean settingsKeyPanel, boolean wallpaperEnabled, File wallpaper, List<File> wallpapers,
                    int wallpaperRotationMinutes, int wallpaperDim, boolean overlayApplied,
                    Festival festival, int[] inputKeycodes, List<String> appKeys,
-                   List<RaceWeekend.Race> raceCalendar, boolean cinematicHome,
+                   List<RaceWeekend.Race> raceCalendar, boolean cinematicHome, boolean ambientGlow,
                    double latitude, double longitude, List<String> messages) {
         this.inputKeycodes = inputKeycodes;
         this.appKeys = Collections.unmodifiableList(appKeys);
@@ -162,6 +164,7 @@ final class Config {
         this.festival = festival;
         this.raceCalendar = Collections.unmodifiableList(raceCalendar);
         this.cinematicHome = cinematicHome;
+        this.ambientGlow = ambientGlow;
         this.latitude = latitude;
         this.longitude = longitude;
         this.messages = Collections.unmodifiableList(messages);
@@ -207,6 +210,7 @@ final class Config {
         int[] inputKeycodes = res.getIntArray(R.array.input_key_keycodes);
         List<String> appKeys = new ArrayList<>(Arrays.asList(res.getStringArray(R.array.app_keys)));
         boolean cinematic = res.getBoolean(R.bool.cinematic_home);
+        boolean ambientGlow = res.getBoolean(R.bool.ambient_glow);
         boolean applied = false;
         double latitude = Double.NaN, longitude = Double.NaN;
         List<String> messages = new ArrayList<>();
@@ -252,6 +256,7 @@ final class Config {
             inputKeycodes = intArray(json, "input_key_keycodes", inputKeycodes);
             appKeys = stringList(json, "app_keys", appKeys);
             cinematic = bool(json, "cinematic_home", cinematic);
+            ambientGlow = bool(json, "ambient_glow", ambientGlow);
         }
         // A theme push or reset invalidates choices made on the TV. On first use, remember the
         // current theme without clearing choices from an older launcher version.
@@ -307,7 +312,7 @@ final class Config {
                 shamsi, greetingName, moduleCards, reducedMotion, dockTitle, dockRow, reorderButton, vpn, homeSettings, showStats, library, background,
                 Math.max(0, Math.min(100, skyIntensity)), settingsKeycodes, settingsKeyPanel, wallpaperEnabled, wallpaper,
                 wallpapers, rotationMinutes, wallpaperDim, applied,
-                festival, inputKeycodes, appKeys, json == null ? Collections.emptyList() : raceCalendar(json), cinematic,
+                festival, inputKeycodes, appKeys, json == null ? Collections.emptyList() : raceCalendar(json), cinematic, ambientGlow,
                 latitude, longitude, messages);
     }
 

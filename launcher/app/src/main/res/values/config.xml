@@ -159,4 +159,7 @@
          dots, the focus glow takes the app's colour and the dock band turns translucent. false keeps the plain
          shelf. Can also be set with "cinematic_home": true in a theme's config.json. -->
     <bool name="cinematic_home">false</bool>
+    <!-- Background tint in the focused dock app's colour. false keeps the background (or wallpaper) untinted.
+         Can also be set with "ambient_glow": false in a theme's config.json. -->
+    <bool name="ambient_glow">true</bool>
 </resources>
