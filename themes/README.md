@@ -55,6 +55,8 @@ is ignored, and a file that doesn't parse is ignored as a whole, so a theme can 
 | `wallpaper` | bool | Show `wallpaper.jpg` from the theme folder (`true`), or ignore it (`false`) |
 | `wallpaper_rotation_minutes` | 0 to 1440 | Randomly rotate images in the theme's `wallpapers/` folder at this interval; 0 keeps the single-image behaviour |
 | `wallpaper_dim` | 0 to 90 | Black overlay over wallpaper images, in percent; 0 by default |
+| `latitude`, `longitude` | numbers (-90 to 90, -180 to 180) | Where the TV is, for day/night wallpaper variants; both are needed, otherwise day is 07:00 to 19:00 local |
+| `messages` | list of strings | Greetings that replace the time-of-day one, a new one each time Home opens; empty keeps the normal greeting |
 | `festival` | string | Turns on a festive skin: the network pill becomes a diya whose flame follows the connection, Inputs a temple bell, Settings a marigold, and the first Home of the day gets a petal shower. `dussehra` and `diwali` have built-in greetings |
 | `festival_until` | `YYYY-MM-DD` | Last day the festive skin shows; it switches itself off after that. A malformed date turns it off |
 | `greeting` | string | Replaces the time-of-day greeting while the festive skin is on |
@@ -73,7 +75,7 @@ under about 300 KB: the text, the hero name and the dock band are designed for b
 decodes the picture into memory on every Home start. Pictures larger than the screen are scaled down to
 it; a picture that is still over 4K (about 8.4 million pixels) after it is sampled down to the screen is not shown at all, and the plain colour stays.
 
-For a wallpaper collection, place JPEG, PNG or WebP files in the theme’s `wallpapers/` folder beside `config.json`, then set:
+For a wallpaper collection, place JPEG, PNG, WebP or MP4 files in the theme’s `wallpapers/` folder beside `config.json`, then set:
 
 ```json
 { "wallpaper": true, "wallpaper_rotation_minutes": 30, "wallpaper_dim": 40 }
@@ -82,7 +84,7 @@ For a wallpaper collection, place JPEG, PNG or WebP files in the theme’s `wall
 When you apply a theme, its collection replaces the one already on the TV. Use filenames containing
 only letters, digits, underscores, dots and hyphens. Images can come from any source; check that you
 have permission to use them. The launcher considers
-up to 100 nonempty images, at most 10 MB each, skips unreadable files and keeps the last good background.
+up to 100 nonempty files, images up to 10 MB and videos up to 1 GB, skips unreadable files and keeps the last good background.
 An empty collection falls back to `wallpaper.jpg`, or the background colour if no image is available.
 `"wallpaper": false` disables both single-image and collection backgrounds.
 
@@ -95,6 +97,14 @@ The original system idle screensaver is left unchanged.
 On the TV, Launcher settings has a Wallpaper row: pick one picture from the collection (or the theme's
 `wallpaper.jpg`), or None. A pick shows that one picture and stops the rotation until you choose Theme
 default, press Follow theme, or push a theme again.
+
+### Videos, day/night variants and messages
+
+- **Video**: put `.mp4` files in `wallpapers/` (H.264 or HEVC, 1080p recommended, 4K at most, up to 1 GB each; images keep the 10 MB cap). Videos are muted and looped, and the player is released as soon as Home is hidden, so Netflix or YouTube get the decoder back. Strip the audio first to shrink the file: `ffmpeg -i in.mp4 -an -c:v copy out.mp4`. A video the TV cannot play is skipped.
+- **Day/night**: name two files `name.day.<ext>` and `name.night.<ext>` (each can be an image or a video) and they form one entry, `name`. The night one shows between sunset and sunrise, computed from `latitude` and `longitude`; without them, the day is 07:00 to 19:00 local. An entry with only one variant uses it all day. Any other file is its own entry.
+- **Rotation**: collections only rotate with `wallpaper_rotation_minutes` above 0 (`1440` changes the wallpaper once a day, at random). A single video is a one-file collection: put it in `wallpapers/` with `wallpaper_rotation_minutes` set to `1440`.
+- **Picker**: Launcher settings lists entries, so a day/night pair is one choice.
+- **Messages**: `"messages": ["Hola", "Buen día"]` replaces the time-of-day greeting with one of them, picked at random each time Home opens (never the same twice in a row). An active festival greeting wins; `greeting_name` is not added.
 
 ## Reduced motion
 

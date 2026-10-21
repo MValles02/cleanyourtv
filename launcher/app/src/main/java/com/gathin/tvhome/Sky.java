@@ -73,6 +73,28 @@ final class Sky {
     private Sky() {
     }
 
+    /**
+     * True when the sun is down at {@code now} for the place: the Almanac sunrise equation (zenith 90.833 degrees).
+     * No sunrise that day counts as night all day, no sunset as day all day.
+     */
+    static boolean isNight(double lat, double lon, java.time.ZonedDateTime now) {
+        double n = now.toLocalDate().toEpochDay() - 10957;   // days since J2000 at local noon
+        double m = Math.toRadians(357.5291 + 0.98560028 * (n - lon / 360));
+        double c = 1.9148 * Math.sin(m) + 0.02 * Math.sin(2 * m) + 0.0003 * Math.sin(3 * m);
+        double lambda = Math.toRadians(Math.toDegrees(m) + c + 180 + 102.9372);
+        double transit = 12 - lon / 15 + 24 * (0.0053 * Math.sin(m) - 0.0069 * Math.sin(2 * lambda));
+        double decl = Math.asin(Math.sin(lambda) * Math.sin(Math.toRadians(23.44)));
+        double phi = Math.toRadians(lat);
+        double cosW = (Math.sin(Math.toRadians(-0.833)) - Math.sin(phi) * Math.sin(decl))
+                / (Math.cos(phi) * Math.cos(decl));
+        if (cosW > 1) return true;
+        if (cosW < -1) return false;
+        double half = Math.toDegrees(Math.acos(cosW)) / 15;
+        double offset = now.getOffset().getTotalSeconds() / 3600.0;
+        double hour = now.getHour() + now.getMinute() / 60.0;
+        return hour < transit - half + offset || hour >= transit + half + offset;
+    }
+
     /** The palette at {@code minuteOfDay}, clamped to a day. */
     static Palette at(int minuteOfDay) {
         int m = Math.max(0, Math.min(1440, minuteOfDay));

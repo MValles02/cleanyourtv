@@ -124,17 +124,21 @@ public final class LauncherSettingsActivity extends Activity {
 
     private void showWallpaperPicker() {
         File dir = Config.dir(this);
-        List<File> images = new java.util.ArrayList<>(WallpaperRotation.images(
-                dir == null ? null : new File(dir, "wallpapers")));
+        // One row per entry: a day/night pair or a video is a single choice, stored by its key.
+        java.util.TreeSet<String> sorted = new java.util.TreeSet<>();
+        for (File image : WallpaperRotation.images(dir == null ? null : new File(dir, "wallpapers"))) {
+            sorted.add(WallpaperRotation.key(image.getName()));
+        }
+        List<String> images = new java.util.ArrayList<>(sorted);
         // A theme with a single wallpaper.jpg offers that picture too (Config maps the choice back to it).
         File single = dir == null ? null : new File(dir, Config.WALLPAPER_NAME);
-        if (single != null && single.isFile()) images.add(0, single);
+        if (single != null && single.isFile()) images.add(0, single.getName());
         String[] labels = new String[images.size() + 1];
-        for (int i = 0; i < images.size(); i++) labels[i] = images.get(i).getName();
+        for (int i = 0; i < images.size(); i++) labels[i] = images.get(i);
         labels[images.size()] = getString(R.string.wallpaper_none);
         String current = choices.getString(Config.WALLPAPER_CHOICE_KEY, null);
         int checked = "none".equals(current) ? images.size()
-                : indexOf(images, current);
+                : images.indexOf(current);
         new AlertDialog.Builder(this)
                 .setTitle(R.string.wallpaper_label)
                 .setSingleChoiceItems(labels, checked, (dialog, which) -> {
@@ -143,7 +147,7 @@ public final class LauncherSettingsActivity extends Activity {
                         choices.edit().putString(Config.WALLPAPER_CHOICE_KEY, "none").apply();
                     } else {
                         choices.edit().putString(Config.WALLPAPER_CHOICE_KEY,
-                                images.get(which).getName()).apply();
+                                images.get(which)).apply();
                     }
                     setResult(RESULT_OK);
                     Toast.makeText(this, R.string.wallpaper_applied, Toast.LENGTH_SHORT).show();
@@ -156,14 +160,6 @@ public final class LauncherSettingsActivity extends Activity {
                 })
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
-    }
-
-    private static int indexOf(List<File> images, String name) {
-        if (name == null) return -1;
-        for (int i = 0; i < images.size(); i++) {
-            if (images.get(i).getName().equals(name)) return i;
-        }
-        return -1;
     }
 
     private void setAdvanced(boolean enabled) {

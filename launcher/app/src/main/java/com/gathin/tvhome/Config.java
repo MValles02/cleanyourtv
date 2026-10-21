@@ -104,6 +104,11 @@ final class Config {
     final List<RaceWeekend.Race> raceCalendar;
     /** Cinematic top shelf (config.xml, cinematic_home): the focused dock app's artwork behind a larger shelf. */
     final boolean cinematicHome;
+    /** Where the TV is (config.json, latitude/longitude), for day/night wallpapers; NaN when unset. */
+    final double latitude;
+    final double longitude;
+    /** Greetings that rotate each time Home opens (config.json, messages); empty keeps the time-of-day greeting. */
+    final List<String> messages;
 
     private Config(List<String> dockApps, boolean fillDock, List<String> hiddenApps, String liveTvPackage,
                    String liveTvAction, Map<String, String> launchActions, Map<String, String> appLabels,
@@ -114,7 +119,8 @@ final class Config {
                    int[] settingsKeycodes, boolean settingsKeyPanel, boolean wallpaperEnabled, File wallpaper, List<File> wallpapers,
                    int wallpaperRotationMinutes, int wallpaperDim, boolean overlayApplied,
                    Festival festival, int[] inputKeycodes, List<String> appKeys,
-                   List<RaceWeekend.Race> raceCalendar, boolean cinematicHome) {
+                   List<RaceWeekend.Race> raceCalendar, boolean cinematicHome,
+                   double latitude, double longitude, List<String> messages) {
         this.inputKeycodes = inputKeycodes;
         this.appKeys = Collections.unmodifiableList(appKeys);
         this.dockApps = Collections.unmodifiableList(dockApps);
@@ -156,6 +162,9 @@ final class Config {
         this.festival = festival;
         this.raceCalendar = Collections.unmodifiableList(raceCalendar);
         this.cinematicHome = cinematicHome;
+        this.latitude = latitude;
+        this.longitude = longitude;
+        this.messages = Collections.unmodifiableList(messages);
     }
 
     /** The folder the theme tools push into; null when external storage is unavailable. */
@@ -199,12 +208,17 @@ final class Config {
         List<String> appKeys = new ArrayList<>(Arrays.asList(res.getStringArray(R.array.app_keys)));
         boolean cinematic = res.getBoolean(R.bool.cinematic_home);
         boolean applied = false;
+        double latitude = Double.NaN, longitude = Double.NaN;
+        List<String> messages = new ArrayList<>();
 
         File dir = dir(ctx);
         File file = dir != null ? new File(dir, FILE_NAME) : null;
         JSONObject json = read(file);
         if (json != null) {
             applied = true;
+            latitude = number(json, "latitude", -90, 90);
+            longitude = number(json, "longitude", -180, 180);
+            messages = stringList(json, "messages", messages);
             dock = stringList(json, "dock_apps", dock);
             fillDock = bool(json, "fill_dock", fillDock);
             hidden = stringList(json, "hidden_apps", hidden);
@@ -269,14 +283,16 @@ final class Config {
             wallpaper = null;
             wallpaperEnabled = false;
         } else if (wallpaperChoice != null && dir != null) {
-            File picked = WallpaperRotation.find(
-                    WallpaperRotation.images(new File(dir, "wallpapers")), wallpaperChoice);
-            if (picked == null && wallpaperChoice.equals(
-                    wallpaper != null ? wallpaper.getName() : "")) picked = wallpaper;
-            if (picked != null) {
+            List<File> picked = new ArrayList<>();
+            for (File image : WallpaperRotation.images(new File(dir, "wallpapers"))) {
+                if (WallpaperRotation.key(image.getName()).equals(wallpaperChoice)) picked.add(image);
+            }
+            if (picked.isEmpty() && wallpaperChoice.equals(
+                    wallpaper != null ? wallpaper.getName() : "")) picked.add(wallpaper);
+            if (!picked.isEmpty()) {
                 wallpapers.clear();
-                wallpapers.add(picked);
-                wallpaper = picked;
+                wallpapers.addAll(picked);
+                wallpaper = picked.get(0);
                 wallpaperEnabled = true;
             }
         }
@@ -291,7 +307,8 @@ final class Config {
                 shamsi, greetingName, moduleCards, reducedMotion, dockTitle, dockRow, reorderButton, vpn, homeSettings, showStats, library, background,
                 Math.max(0, Math.min(100, skyIntensity)), settingsKeycodes, settingsKeyPanel, wallpaperEnabled, wallpaper,
                 wallpapers, rotationMinutes, wallpaperDim, applied,
-                festival, inputKeycodes, appKeys, json == null ? Collections.emptyList() : raceCalendar(json), cinematic);
+                festival, inputKeycodes, appKeys, json == null ? Collections.emptyList() : raceCalendar(json), cinematic,
+                latitude, longitude, messages);
     }
 
     /**
@@ -393,6 +410,13 @@ final class Config {
         if (!(v instanceof Number)) return fallback;
         int i = ((Number) v).intValue();
         return i < min || i > max ? fallback : i;
+    }
+
+    private static double number(JSONObject o, String key, double min, double max) {
+        Object v = o.opt(key);
+        if (!(v instanceof Number)) return Double.NaN;
+        double d = ((Number) v).doubleValue();
+        return d < min || d > max ? Double.NaN : d;   // NaN fails both tests, so it is rejected too
     }
 
     private static int color(JSONObject o, String key, int fallback) {

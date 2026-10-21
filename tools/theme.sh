@@ -59,12 +59,12 @@ if [ -f "$THEME/wallpaper.jpg" ]; then
 else
   tv "$(del wallpaper.jpg)" >/dev/null
 fi
-tv "mkdir -p $DIR/wallpapers 2>/dev/null; rm -f $DIR/wallpapers/*.jpg $DIR/wallpapers/*.jpeg $DIR/wallpapers/*.png $DIR/wallpapers/*.webp $DIR/wallpapers/*.JPG $DIR/wallpapers/*.JPEG $DIR/wallpapers/*.PNG $DIR/wallpapers/*.WEBP 2>/dev/null; content delete --uri $URI/wallpapers 2>/dev/null" >/dev/null
+tv "mkdir -p $DIR/wallpapers 2>/dev/null; rm -f $DIR/wallpapers/*.jpg $DIR/wallpapers/*.jpeg $DIR/wallpapers/*.png $DIR/wallpapers/*.webp $DIR/wallpapers/*.JPG $DIR/wallpapers/*.JPEG $DIR/wallpapers/*.PNG $DIR/wallpapers/*.WEBP $DIR/wallpapers/*.mp4 $DIR/wallpapers/*.MP4 2>/dev/null; content delete --uri $URI/wallpapers 2>/dev/null" >/dev/null
 if [ -d "$THEME/wallpapers" ]; then
   for IMAGE in "$THEME"/wallpapers/*; do
     [ -f "$IMAGE" ] || continue
     case "$IMAGE" in
-      *.jpg|*.jpeg|*.png|*.webp|*.JPG|*.JPEG|*.PNG|*.WEBP)
+      *.jpg|*.jpeg|*.png|*.webp|*.mp4|*.JPG|*.JPEG|*.PNG|*.WEBP|*.MP4)
         NAME=$(basename "$IMAGE")
         [[ "$NAME" =~ ^[A-Za-z0-9_.-]+$ ]] || { echo "unsupported wallpaper filename: $NAME" >&2; exit 1; }
         "$PY" -I b64push.py "$IMAGE" "$(stage "wallpapers/$NAME")"
