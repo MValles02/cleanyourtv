@@ -10,7 +10,8 @@ import java.util.Locale;
 /**
  * Race-weekend mode. A theme's config.json can carry an F1 calendar ({@code race_calendar}, written by
  * tools/race_calendar.py); from shortly before a weekend's first session until the race is over, Home shows
- * a small panel with the next session and a countdown. Everything here is the clock against data the owner
+ * a small panel with the next session and a countdown ({@code race_always} drops the lead: the upcoming
+ * weekend always shows). Everything here is the clock against data the owner
  * pushed: no network, no Android types, so it is tested on the JVM.
  */
 final class RaceWeekend {
@@ -120,28 +121,49 @@ final class RaceWeekend {
 
     /** The weekend {@code now} falls in, or null when no race is near. */
     static State at(List<Race> calendar, Instant now) {
+        return at(calendar, now, false);
+    }
+
+    /**
+     * Like {@link #at(List, Instant)}; with {@code always} the {@link #LEAD} is ignored and the earliest
+     * weekend not yet closed is shown, however far away (null only after the last race's {@link #TAIL}).
+     */
+    static State at(List<Race> calendar, Instant now, boolean always) {
+        Race best = null;
+        Instant bestCloses = null;
         for (Race race : calendar) {
             if (race.sessions.isEmpty()) continue;
             Instant opens = race.sessions.get(0).start.minus(LEAD);
             Instant closes = race.sessions.get(race.sessions.size() - 1).start.plus(TAIL);
-            if (now.isBefore(opens) || !now.isBefore(closes)) continue;
-
-            List<Status> statuses = new ArrayList<>();
-            Session live = null, next = null;
-            for (Session s : race.sessions) {
-                if (now.isBefore(s.start)) {
-                    statuses.add(next == null ? Status.NEXT : Status.LATER);
-                    if (next == null) next = s;
-                } else if (now.isBefore(s.start.plus(s.length()))) {
-                    statuses.add(Status.LIVE);
-                    live = s;
-                } else {
-                    statuses.add(Status.DONE);
+            if (!now.isBefore(closes)) continue;
+            if (always) {
+                if (bestCloses == null || closes.isBefore(bestCloses)) {
+                    best = race;
+                    bestCloses = closes;
                 }
+                continue;
             }
-            return new State(race, statuses, live, next, next == null ? null : Duration.between(now, next.start));
+            if (now.isBefore(opens)) continue;
+            return state(race, now);
         }
-        return null;
+        return best == null ? null : state(best, now);
+    }
+
+    private static State state(Race race, Instant now) {
+        List<Status> statuses = new ArrayList<>();
+        Session live = null, next = null;
+        for (Session s : race.sessions) {
+            if (now.isBefore(s.start)) {
+                statuses.add(next == null ? Status.NEXT : Status.LATER);
+                if (next == null) next = s;
+            } else if (now.isBefore(s.start.plus(s.length()))) {
+                statuses.add(Status.LIVE);
+                live = s;
+            } else {
+                statuses.add(Status.DONE);
+            }
+        }
+        return new State(race, statuses, live, next, next == null ? null : Duration.between(now, next.start));
     }
 
     /**

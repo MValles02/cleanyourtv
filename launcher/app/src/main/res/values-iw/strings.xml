@@ -23,6 +23,7 @@
     <string name="stats_memory">זיכרון %1$d MB פנוי</string>
     <string name="stats_storage">אחסון %1$s פנוי</string>
     <string name="dream_name">שעון</string>
+    <string name="dream_home_name">Home</string>
     <string name="vpn">VPN</string>
     <string name="vpn_off">ה־VPN כבוי</string>
     <string name="home_settings">מסך הבית המוגדר כברירת מחדל</string>

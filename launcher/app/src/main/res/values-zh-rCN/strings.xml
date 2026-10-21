@@ -37,6 +37,7 @@
     <string name="stats_memory">内存剩余 %1$d MB</string>
     <string name="stats_storage">存储剩余 %1$s</string>
     <string name="dream_name">时钟</string>
+    <string name="dream_home_name">Home</string>
     <string name="dock_edit">编辑程序坞</string>
     <string name="dock_edit_hint">选择要更改的程序坞位置，然后按确定。按返回完成。</string>
     <string name="dock_edit_pick_app">现在选择要放在那里的应用，然后按确定。按返回重新选择位置。</string>

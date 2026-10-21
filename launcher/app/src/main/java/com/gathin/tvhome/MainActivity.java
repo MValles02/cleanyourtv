@@ -134,6 +134,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private TextView shamsiDate;
     private TextView stats;
     private List<RaceWeekend.Race> raceCalendar;
+    private boolean raceAlways;
     private View racePanel;
     private TextView raceKicker, raceHeadline, raceSessions;
     /** config.xml show_stats, overridable by a theme. Off: the line is gone and nothing is read. */
@@ -141,6 +142,61 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private boolean shamsi;
     /** greeting_name: said after the greeting, which is shown in capitals. */
     private String greetingName = "";
+    /** messages (config.json): one is picked each time Home comes back from hidden and replaces the greeting. */
+    private List<String> messages = Collections.emptyList();
+    private String message = "";
+    /** Home sits under the HomeDream screensaver: dock, buttons and hero wait hidden for the wake animation. */
+    private boolean dreamHidden;
+    /** Set while the screensaver covers Home, cleared 3 s after it ends: the first onStart in that window keeps the message. */
+    private boolean keepMessage;
+    private long pausedAt;
+    private float heroAlpha;
+    /** The dock is sliding up after the screensaver: the glass waits, its tile is still moving. */
+    private boolean revealing;
+    private final BroadcastReceiver dreamReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            boolean front = pausedAt == 0 || SystemClock.uptimeMillis() - pausedAt < 3000;
+            if (Intent.ACTION_DREAMING_STARTED.equals(intent.getAction())) {
+                if (front && !dreamHidden) hideForDream();
+            } else {
+                handler.postDelayed(() -> keepMessage = false, 3000);
+                if (pausedAt == 0 && dreamHidden) revealAfterDream();   // otherwise onResume does, when Home is the activity returned to
+            }
+        }
+    };
+
+    private void hideForDream() {
+        dreamHidden = keepMessage = true;
+        heroAlpha = hero.getAlpha();
+        hero.setAlpha(0f);
+        glass.setAlpha(0f);
+        grid.setAlpha(0f);
+        findViewById(R.id.topButtons).setAlpha(0f);
+    }
+
+    /** The dock slides up, the buttons settle down and the hero fades in; instant with animations off. */
+    private void revealAfterDream() {
+        dreamHidden = false;
+        if (revealing) return;
+        revealing = true;
+        long d = animations && !reducedMotion ? 400 : 0;
+        View buttons = findViewById(R.id.topButtons);
+        grid.setTranslationY(d == 0 ? 0 : grid.getHeight() / 3f);
+        buttons.setTranslationY(d == 0 ? 0 : -buttons.getHeight() / 2f);
+        grid.animate().alpha(1f).translationY(0f).setDuration(d)
+                .setInterpolator(new android.view.animation.DecelerateInterpolator())
+                .withEndAction(() -> {   // the glass follows the focused tile, so it waits for the slide to end
+                    revealing = false;
+                    if (glassShown) {
+                        glassShown = false;   // refit places it on the tile's final position and fades it in
+                        refitGlass();
+                    }
+                }).start();
+        buttons.animate().alpha(1f).translationY(0f).setDuration(d).start();
+        if (hero.getAlpha() == 0f) hero.animate().alpha(heroAlpha).setDuration(d).start();
+    }
+    private final java.util.Random messageRandom = new java.util.Random();
     /** Optional time-of-day backdrop (config.xml, sky_intensity); 0 keeps it hidden. */
     private SkyView sky;
     private String vpnApp;
@@ -292,12 +348,13 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
         root = findViewById(R.id.root);
         root.setBackgroundColor(cfg.backgroundColor);
-        wallpaperPlayer = new WallpaperPlayer(this, root, cfg);
+        wallpaperPlayer = new WallpaperPlayer(this, root, cfg, false);
         sky = findViewById(R.id.sky);
         sky.setIntensity(cfg.skyIntensity);
         glass = findViewById(R.id.glass);
         if (festive) glass.setAccent(festival.accentColor());
         ambient = findViewById(R.id.ambient);
+        if (!cfg.ambientGlow) ambient.setVisibility(View.GONE);   // ambient_glow: false, the animators then fade a view nobody sees
         // The glow is one bitmap, so its alpha can be applied while drawing it. Otherwise every frame of
         // a fade renders it into a full-screen offscreen buffer first.
         ambient.forceHasOverlappingRendering(false);
@@ -320,6 +377,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         shamsiDate = findViewById(R.id.shamsiDate);
         stats = findViewById(R.id.stats);
         raceCalendar = cfg.raceCalendar;
+        raceAlways = cfg.raceAlways;
         racePanel = findViewById(R.id.racePanel);
         raceKicker = findViewById(R.id.raceKicker);
         raceHeadline = findViewById(R.id.raceHeadline);
@@ -327,6 +385,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         showStats = cfg.showStats;
         shamsi = cfg.shamsiDate;
         greetingName = cfg.greetingName;
+        messages = cfg.messages;
+        // Protected system broadcasts: registered for the whole life of Home, which may be stopped under the dream.
+        IntentFilter dreamFilter = new IntentFilter(Intent.ACTION_DREAMING_STARTED);
+        dreamFilter.addAction(Intent.ACTION_DREAMING_STOPPED);
+        registerReceiver(dreamReceiver, dreamFilter);
         if (shamsi) {
             shamsiDate.setVisibility(View.VISIBLE);
             TextView date = findViewById(R.id.date);
@@ -568,6 +631,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onStart() {
         super.onStart();
+        if (keepMessage) keepMessage = false;   // back from the screensaver keeps the message
+        else if (!messages.isEmpty()) {
+            List<String> others = new ArrayList<>(messages);
+            if (others.size() > 1) others.remove(message);
+            message = others.get(messageRandom.nextInt(others.size()));
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(packageReceiver, packageFilter, Context.RECEIVER_NOT_EXPORTED);
         } else {
@@ -583,6 +652,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             recreate();
             return;
         }
+        pausedAt = 0;
+        if (dreamHidden) revealAfterDream();   // no stop event came, or Home was resumed first
         promptsPaused = false;
         if (rebuildOnResume) {
             tilesReady = false;
@@ -692,6 +763,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onPause() {
         super.onPause();
+        pausedAt = SystemClock.uptimeMillis();
         endReorder();   // Home or another app while reordering keeps the order so far
         wallpaperPlayer.stop();
         stopAmbientAnimation();
@@ -728,6 +800,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     protected void onDestroy() {
         super.onDestroy();
         wallpaperPlayer.close();
+        unregisterReceiver(dreamReceiver);
         ConnectivityManager cm = getSystemService(ConnectivityManager.class);
         TvInputManager tim = (TvInputManager) getSystemService(TV_INPUT_SERVICE);
         if (tim != null) tim.unregisterCallback(inputCallback);
@@ -769,6 +842,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      */
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
+        if (dreamHidden) revealAfterDream();
         if (handleSettingsKey(event)) return true;
         if (!reordering) return super.dispatchKeyEvent(event);
         if (dockEditing) return dispatchDockEdit(event);
@@ -1086,7 +1160,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             springY.cancel();
             glass.setTranslationX(x);
             glass.setTranslationY(y);
-            if (animations) glass.animate().alpha(1f).setDuration(reducedMotion ? 100 : 180).start();
+            if (revealing) glass.setAlpha(0f);
+            else if (animations) glass.animate().alpha(1f).setDuration(reducedMotion ? 100 : 180).start();
             else glass.setAlpha(1f);
             glassShown = true;
         } else if (!animations) {
@@ -1771,17 +1846,19 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (!festiveGreeting.isEmpty()) {
             greeting.setText(festiveGreeting);
             greeting.setTextColor(liftTowardsWhite(festival.accentColor(), 0.25f));
+        } else if (!message.isEmpty()) {
+            greeting.setText(message);
+            greeting.setTextColor(greetingColor);
         } else {
             greeting.setText(greetingName.isEmpty() ? getString(res)
                     : getString(R.string.greeting_with_name, getString(res), greetingName));
             greeting.setTextColor(greetingColor);
         }
+        HomeDream.greeting = greeting.getText().toString();
         if (shamsi) shamsiDate.setText(Shamsi.today());
     }
 
     // ---- race-weekend panel (a theme's race_calendar) -----------------------------------------------
-
-    private static final int RACE_RED = 0xFFFF3B2F;
 
     /**
      * Shows or hides the race-weekend panel for this minute. Text only, set once a minute with the clock:
@@ -1789,49 +1866,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      */
     private void updateRace() {
         if (raceCalendar.isEmpty()) return;
-        RaceWeekend.State s = RaceWeekend.at(raceCalendar, java.time.Instant.now());
-        if (s == null) {
-            racePanel.setVisibility(View.GONE);
-            return;
-        }
-        RaceWeekend.Race race = s.race;
-        raceKicker.setText(race.place.isEmpty()
-                ? getString(R.string.race_kicker_no_place, race.round, race.shortName())
-                : getString(R.string.race_kicker, race.round, race.shortName(), race.place));
-
-        if (s.live != null) {
-            SpannableString live = new SpannableString("\u25CF  " + getString(R.string.race_live, s.live.title()));
-            live.setSpan(new android.text.style.ForegroundColorSpan(RACE_RED), 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            raceHeadline.setText(live);
-        } else if (s.next != null) {
-            String in = RaceWeekend.countdown(s.untilNext);
-            raceHeadline.setText(s.next.isRace() ? getString(R.string.race_lights_out, in)
-                    : getString(R.string.race_next, s.next.title(), in));
-        } else {
-            raceHeadline.setText(R.string.race_finished);
-        }
-
-        // FP1 FRI 11:00 PM   FP2 SAT 2:30 AM ...: done sessions fade, the live one is red, the next one bright.
-        java.time.format.DateTimeFormatter when = java.time.format.DateTimeFormatter.ofPattern(
-                android.text.format.DateFormat.is24HourFormat(this) ? "EEE HH:mm" : "EEE h:mm a", Locale.getDefault())
-                .withZone(java.time.ZoneId.systemDefault());
-        android.text.SpannableStringBuilder row = new android.text.SpannableStringBuilder();
-        for (int i = 0; i < race.sessions.size(); i++) {
-            RaceWeekend.Session session = race.sessions.get(i);
-            if (i > 0) row.append("     ");
-            int start = row.length();
-            row.append(session.shortName()).append("  ").append(when.format(session.start).toUpperCase(Locale.getDefault()));
-            int color;
-            switch (s.statuses.get(i)) {
-                case DONE: color = 0x47FFFFFF; break;
-                case LIVE: color = RACE_RED; break;
-                case NEXT: color = 0xFFFFFFFF; break;
-                default: color = 0x99FFFFFF;
-            }
-            row.setSpan(new android.text.style.ForegroundColorSpan(color), start, row.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        }
-        raceSessions.setText(row);
-        racePanel.setVisibility(View.VISIBLE);
+        RacePanel.bind(this, RaceWeekend.at(raceCalendar, java.time.Instant.now(), raceAlways),
+                racePanel, raceKicker, raceHeadline, raceSessions);
     }
 
     /** Shows the Wi-Fi network name on the button when we can read it, otherwise the connection type. */

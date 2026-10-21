@@ -159,4 +159,11 @@
          dots, the focus glow takes the app's colour and the dock band turns translucent. false keeps the plain
          shelf. Can also be set with "cinematic_home": true in a theme's config.json. -->
     <bool name="cinematic_home">false</bool>
+    <!-- Background tint in the focused dock app's colour. false keeps the background (or wallpaper) untinted.
+         Can also be set with "ambient_glow": false in a theme's config.json. -->
+    <bool name="ambient_glow">true</bool>
+    <!-- Race-weekend panel (needs a race_calendar in a theme): true keeps it always showing the next session,
+         however far away; false shows it only from 12 hours before the weekend's first session.
+         Can also be set with "race_always": true in a theme's config.json. -->
+    <bool name="race_always">false</bool>
 </resources>

@@ -24,6 +24,7 @@
     <string name="stats_memory">মেমরি %1$d MB খালি</string>
     <string name="stats_storage">স্টোরেজ %1$s খালি</string>
     <string name="dream_name">ঘড়ি</string>
+    <string name="dream_home_name">Home</string>
     <string name="vpn">VPN</string>
     <string name="vpn_off">VPN বন্ধ</string>
     <string name="home_settings">ডিফল্ট হোম বেছে নিন</string>
