@@ -13,6 +13,9 @@ public class HomeDream extends DreamService {
     /** What Home's greeting line shows right now (set by MainActivity), so a message carries over. */
     static String greeting = "";
     private WallpaperPlayer wallpaper;
+    private final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private java.util.List<RaceWeekend.Race> calendar = java.util.Collections.emptyList();
+    private boolean always;
 
     @Override
     public void onAttachedToWindow() {
@@ -30,10 +33,27 @@ public class HomeDream extends DreamService {
             shamsi.setText(Shamsi.today());
             shamsi.setVisibility(View.VISIBLE);
         }
+        calendar = cfg.raceCalendar;
+        always = cfg.raceAlways;
+        tick.run();
     }
+
+    /** Rebinds the race panel, then again at the next minute boundary (the clock's tick). */
+    private final Runnable tick = new Runnable() {
+        @Override
+        public void run() {
+            if (!calendar.isEmpty()) {
+                RacePanel.bind(HomeDream.this, RaceWeekend.at(calendar, java.time.Instant.now(), always),
+                        findViewById(R.id.racePanel), findViewById(R.id.raceKicker),
+                        findViewById(R.id.raceHeadline), findViewById(R.id.raceSessions));
+            }
+            handler.postDelayed(this, 60000 - System.currentTimeMillis() % 60000);
+        }
+    };
 
     @Override
     public void onDetachedFromWindow() {
+        handler.removeCallbacks(tick);
         if (wallpaper != null) wallpaper.close();
         super.onDetachedFromWindow();
     }
